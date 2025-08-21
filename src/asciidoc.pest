@@ -1,0 +1,144 @@
+WHITESPACE = _{ " " | "\t" }
+NEWLINE = _{ "\n" | "\r\n" | "\r" }
+
+document = { SOI ~ header? ~ body ~ EOI }
+
+header = { title ~ header_attribute* }
+title = { "= " ~ title_text ~ NEWLINE }
+title_text = { (!NEWLINE ~ ANY)+ }
+
+header_attribute = { ":" ~ attribute_name ~ ":" ~ attribute_value? ~ NEWLINE }
+attribute_name = { (ASCII_ALPHANUMERIC | "-" | "_")+ }
+attribute_value = { (!NEWLINE ~ ANY)* }
+
+body = { (block | empty_line)* }
+empty_line = _{ NEWLINE }
+
+block = {
+    section |
+    delimited_block |
+    list |
+    block_metadata |
+    paragraph
+}
+
+section = { section_title ~ block* }
+section_title = { section_marker ~ " " ~ section_text ~ NEWLINE }
+section_marker = { "=" ~ "="* }
+section_text = { (!NEWLINE ~ ANY)+ }
+
+delimited_block = {
+    listing_block |
+    example_block |
+    literal_block |
+    sidebar_block |
+    quote_block
+}
+
+listing_block = { "----" ~ NEWLINE ~ listing_content ~ "----" ~ NEWLINE? }
+listing_content = { (!("----" ~ NEWLINE) ~ ANY)* }
+
+example_block = { "====" ~ NEWLINE ~ example_content ~ "====" ~ NEWLINE? }
+example_content = { (!("====" ~ NEWLINE) ~ ANY)* }
+
+literal_block = { "...." ~ NEWLINE ~ literal_content ~ "...." ~ NEWLINE? }
+literal_content = { (!("...." ~ NEWLINE) ~ ANY)* }
+
+sidebar_block = { "****" ~ NEWLINE ~ sidebar_content ~ "****" ~ NEWLINE? }
+sidebar_content = { (!("****" ~ NEWLINE) ~ ANY)* }
+
+quote_block = { "____" ~ NEWLINE ~ quote_content ~ "____" ~ NEWLINE? }
+quote_content = { (!("____" ~ NEWLINE) ~ ANY)* }
+
+list = { unordered_list | ordered_list | description_list }
+
+unordered_list = { unordered_item+ }
+unordered_item = { unordered_marker ~ " " ~ list_text ~ NEWLINE }
+unordered_marker = { "*" ~ "*"* }
+
+ordered_list = { ordered_item+ }
+ordered_item = { ordered_marker ~ list_text ~ NEWLINE }
+ordered_marker = { "." ~ "."* ~ " " }
+
+description_list = { description_item+ }
+description_item = { description_term ~ "::" ~ " "? ~ description_text? ~ NEWLINE }
+description_term = { (!"::" ~ !NEWLINE ~ ANY)+ }
+description_text = { (!NEWLINE ~ ANY)* }
+
+list_text = { inline_element* }
+
+paragraph = { paragraph_line+ }
+paragraph_line = { !section_marker ~ !list_marker ~ !block_delim ~ paragraph_text ~ NEWLINE? }
+paragraph_text = { inline_element+ }
+block_delim = { "----" | "====" | "...." | "****" | "____" }
+list_marker = { (unordered_marker ~ " ") | ordered_marker | (description_term ~ "::") }
+
+block_metadata = {
+    block_title |
+    block_attribute |
+    block_anchor
+}
+
+block_title = { "." ~ (!NEWLINE ~ ANY)+ ~ NEWLINE }
+block_attribute = { "[" ~ attribute_list ~ "]" ~ NEWLINE }
+attribute_list = { attribute_entry ~ ("," ~ attribute_entry)* }
+attribute_entry = { (!("," | "]") ~ ANY)+ }
+block_anchor = { "[[" ~ anchor_id ~ "]]" ~ NEWLINE }
+anchor_id = { (!"]]" ~ ANY)+ }
+
+inline_element = {
+    formatted_text |
+    inline_macro |
+    line_break |
+    regular_text
+}
+
+formatted_text = {
+    strong_text |
+    emphasis_text |
+    monospace_text |
+    superscript_text |
+    subscript_text
+}
+
+strong_text = { "**" ~ strong_content ~ "**" | "*" ~ strong_content ~ "*" }
+strong_content = { (!("**" | "*") ~ ANY)+ }
+
+emphasis_text = { "__" ~ emphasis_content ~ "__" | "_" ~ emphasis_content ~ "_" }
+emphasis_content = { (!"_" ~ ANY)+ }
+
+monospace_text = { "``" ~ monospace_content ~ "``" | "`" ~ monospace_content ~ "`" }
+monospace_content = { (!"`" ~ ANY)+ }
+
+superscript_text = { "^" ~ superscript_content ~ "^" }
+superscript_content = { (!"^" ~ ANY)+ }
+
+subscript_text = { "~" ~ subscript_content ~ "~" }
+subscript_content = { (!"~" ~ ANY)+ }
+
+inline_macro = {
+    link_macro |
+    image_macro |
+    xref_macro
+}
+
+link_macro = { "link:" ~ url ~ "[" ~ link_text? ~ "]" }
+url = { (!("[" | WHITESPACE | NEWLINE) ~ ANY)+ }
+link_text = { (!"]" ~ ANY)* }
+
+image_macro = { "image:" ~ image_path ~ "[" ~ image_attributes? ~ "]" }
+image_path = { (!("[" | WHITESPACE | NEWLINE) ~ ANY)+ }
+image_attributes = { (!"]" ~ ANY)* }
+
+xref_macro = { "<<" ~ xref_target ~ ("," ~ xref_text)? ~ ">>" }
+xref_target = { (!("," | ">>") ~ ANY)+ }
+xref_text = { (!">>" ~ ANY)+ }
+
+line_break = { " +" ~ NEWLINE }
+
+regular_text = { (!special_char ~ !NEWLINE ~ ANY)+ }
+special_char = {
+    "*" | "_" | "`" | "^" | "~" | "[" | "]" | "<<" | ">>" | 
+    "link:" | "image:" | "=" | "----" | "====" | 
+    "...." | "****" | "____" | "::" | " +"
+}

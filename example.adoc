@@ -1,0 +1,9 @@
+= My Sample Document
+:author: John Doe
+:version: 1.0
+
+This is a simple paragraph with some *bold text* and _italic text_.
+
+Another paragraph with `monospace code` and a link:https://example.com[Example Link].
+
+Here's some content that should work with the current parser.
