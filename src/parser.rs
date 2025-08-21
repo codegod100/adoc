@@ -120,47 +120,13 @@ fn parse_block(pair: pest::iterators::Pair<Rule>) -> Option<Block> {
 }
 
 fn parse_section(pair: pest::iterators::Pair<Rule>) -> Block {
-    let mut level = 1;
-    let mut title = String::new();
-    let mut blocks = Vec::new();
+    let content = pair.as_str();
+    let level = content.chars().take_while(|&c| c == '=').count();
+    let title = content.trim_start_matches('=').trim().to_string();
     
-    for inner_pair in pair.into_inner() {
-        match inner_pair.as_rule() {
-            Rule::section_title => {
-                let (parsed_level, parsed_title) = parse_section_title(inner_pair);
-                level = parsed_level;
-                title = parsed_title;
-            }
-            Rule::block => {
-                if let Some(block) = parse_block(inner_pair) {
-                    blocks.push(block);
-                }
-            }
-            _ => {}
-        }
-    }
-    
-    Block::Section { level, title, blocks }
+    Block::Section { level, title, blocks: Vec::new() }
 }
 
-fn parse_section_title(pair: pest::iterators::Pair<Rule>) -> (usize, String) {
-    let mut level = 1;
-    let mut title = String::new();
-    
-    for inner_pair in pair.into_inner() {
-        match inner_pair.as_rule() {
-            Rule::section_marker => {
-                level = inner_pair.as_str().chars().count();
-            }
-            Rule::section_text => {
-                title = inner_pair.as_str().to_string();
-            }
-            _ => {}
-        }
-    }
-    
-    (level, title)
-}
 
 fn parse_delimited_block(pair: pest::iterators::Pair<Rule>) -> Block {
     for inner_pair in pair.into_inner() {

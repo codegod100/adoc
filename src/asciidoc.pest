@@ -22,10 +22,7 @@ block = {
     paragraph
 }
 
-section = { section_title ~ block* }
-section_title = { section_marker ~ " " ~ section_text ~ NEWLINE }
-section_marker = { "=" ~ "="* }
-section_text = { (!NEWLINE ~ ANY)+ }
+section = @{ "=" ~ "="+ ~ " " ~ (!NEWLINE ~ ANY)+ }
 
 delimited_block = {
     listing_block |
@@ -68,7 +65,7 @@ description_text = { (!NEWLINE ~ ANY)* }
 list_text = { inline_element* }
 
 paragraph = { paragraph_line+ }
-paragraph_line = { !section_marker ~ !list_marker ~ !block_delim ~ paragraph_text ~ NEWLINE? }
+paragraph_line = { !"==" ~ !list_marker ~ !block_delim ~ paragraph_text ~ NEWLINE? }
 paragraph_text = { inline_element+ }
 block_delim = { "----" | "====" | "...." | "****" | "____" }
 list_marker = { (unordered_marker ~ " ") | ordered_marker | (description_term ~ "::") }

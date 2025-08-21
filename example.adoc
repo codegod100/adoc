@@ -1,9 +1,81 @@
-= My Sample Document
-:author: John Doe
-:version: 1.0
+= Advanced AsciiDoc Parser Test Document
+:author: Jane Smith
+:email: jane.smith@example.com
+:version: 2.1.3
+:date: 2024-01-15
+:description: A comprehensive test document for the AsciiDoc parser
+:toc: left
+:numbered:
+:source-highlighter: pygments
+:icons: font
 
-This is a simple paragraph with some *bold text* and _italic text_.
+This document tests various AsciiDoc features including *bold text*, _italic text_, and `monospace code`.
 
-Another paragraph with `monospace code` and a link:https://example.com[Example Link].
+== Introduction
 
-Here's some content that should work with the current parser.
+Welcome to this ^superscript^ and ~subscript~ text example. Here's a link:https://rust-lang.org[Rust Programming Language] that should be parsed correctly.
+
+You can also use **double asterisks for bold** and __double underscores for emphasis__.
+
+=== Code Examples
+
+Here's some Rust code:
+
+----
+fn main() {
+    println!("Hello, AsciiDoc!");
+    let mut vec = Vec::new();
+    vec.push(42);
+}
+----
+
+And a simple example block:
+
+====
+This is an example block that contains important information.
+It can span multiple lines and include formatting like *bold* text.
+====
+
+== Lists and More
+
+=== Unordered Lists
+
+* First item with *bold* text
+* Second item with a link:https://github.com[GitHub link]
+** Nested item with `code`
+** Another nested item
+
+=== Ordered Lists
+
+. First numbered item
+. Second numbered item with _emphasis_
+.. Sub-item with **strong** text
+.. Another sub-item
+
+=== Description Lists
+
+CPU:: The central processing unit
+RAM:: Random access memory with `volatile` storage
+SSD:: Solid state drive for fast link:https://wikipedia.org/wiki/Data_storage[data storage]
+
+== Advanced Features
+
+.Important Note
+[NOTE]
+====
+This is a note block that provides additional information.
+====
+
+Here's a line break: +
+This text appears on a new line.
+
+=== Cross References
+
+See <<introduction>> for more details about this document.
+
+[[conclusion]]
+== Conclusion
+
+This document demonstrates various AsciiDoc features that our parser should handle gracefully. Some features like *formatting*, links, and basic blocks should work, while others may need additional implementation.
+
+Visit link:https://asciidoc.org[AsciiDoc.org] for complete documentation.
