@@ -1,0 +1,5 @@
+= Inline Test
+
+This has *bold*, _italic_, `monospace`, ^super^script, and ~sub~script text.
+
+Also a link:https://example.com[test link] and <<cross-ref>> reference.

@@ -49,24 +49,24 @@ quote_content = { (!("____" ~ NEWLINE) ~ ANY)* }
 
 list = { unordered_list | ordered_list | description_list }
 
-unordered_list = { unordered_item+ }
-unordered_item = { unordered_marker ~ " " ~ list_text ~ NEWLINE }
+unordered_list = { unordered_item ~ (NEWLINE? ~ unordered_item)* }
+unordered_item = @{ unordered_marker ~ " " ~ list_content ~ NEWLINE? }
 unordered_marker = { "*" ~ "*"* }
 
-ordered_list = { ordered_item+ }
-ordered_item = { ordered_marker ~ list_text ~ NEWLINE }
-ordered_marker = { "." ~ "."* ~ " " }
+ordered_list = { ordered_item ~ (NEWLINE? ~ ordered_item)* }
+ordered_item = @{ ordered_marker ~ " " ~ list_content ~ NEWLINE? }
+ordered_marker = { "." ~ "."* }
 
 description_list = { description_item+ }
 description_item = { description_term ~ "::" ~ " "? ~ description_text? ~ NEWLINE }
 description_term = { (!"::" ~ !NEWLINE ~ ANY)+ }
 description_text = { (!NEWLINE ~ ANY)* }
 
-list_text = { inline_element* }
+list_content = { (!NEWLINE ~ ANY)* }
 
 paragraph = { paragraph_line+ }
-paragraph_line = { !"==" ~ !list_marker ~ !block_delim ~ paragraph_text ~ NEWLINE? }
-paragraph_text = { inline_element+ }
+paragraph_line = { !"==" ~ !("*" ~ " ") ~ !("." ~ " ") ~ !block_delim ~ paragraph_text ~ NEWLINE? }
+paragraph_text = @{ (!NEWLINE ~ ANY)+ }
 block_delim = { "----" | "====" | "...." | "****" | "____" }
 list_marker = { (unordered_marker ~ " ") | ordered_marker | (description_term ~ "::") }
 
@@ -87,8 +87,11 @@ inline_element = {
     formatted_text |
     inline_macro |
     line_break |
+    whitespace |
     regular_text
 }
+
+whitespace = { " "+ }
 
 formatted_text = {
     strong_text |
@@ -133,7 +136,7 @@ xref_text = { (!">>" ~ ANY)+ }
 
 line_break = { " +" ~ NEWLINE }
 
-regular_text = { (!special_char ~ !NEWLINE ~ ANY)+ }
+regular_text = { (!special_char ~ !NEWLINE ~ !" " ~ ANY)+ }
 special_char = {
     "*" | "_" | "`" | "^" | "~" | "[" | "]" | "<<" | ">>" | 
     "link:" | "image:" | "=" | "----" | "====" | 

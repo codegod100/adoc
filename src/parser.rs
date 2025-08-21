@@ -225,20 +225,14 @@ fn parse_unordered_list(pair: pest::iterators::Pair<Rule>) -> Vec<ListItem> {
 }
 
 fn parse_unordered_item(pair: pest::iterators::Pair<Rule>) -> (usize, Vec<InlineElement>) {
-    let mut level = 1;
-    let mut content = Vec::new();
-    
-    for inner_pair in pair.into_inner() {
-        match inner_pair.as_rule() {
-            Rule::unordered_marker => {
-                level = inner_pair.as_str().chars().count();
-            }
-            Rule::list_text => {
-                content = parse_inline_elements(inner_pair);
-            }
-            _ => {}
-        }
-    }
+    let text = pair.as_str();
+    let level = text.chars().take_while(|&c| c == '*').count();
+    let content_start = text.find(' ').unwrap_or(level) + 1;
+    let content = if content_start < text.len() {
+        parse_paragraph_content(&text[content_start..])
+    } else {
+        Vec::new()
+    };
     
     (level, content)
 }
@@ -257,20 +251,14 @@ fn parse_ordered_list(pair: pest::iterators::Pair<Rule>) -> Vec<ListItem> {
 }
 
 fn parse_ordered_item(pair: pest::iterators::Pair<Rule>) -> (usize, Vec<InlineElement>) {
-    let mut level = 1;
-    let mut content = Vec::new();
-    
-    for inner_pair in pair.into_inner() {
-        match inner_pair.as_rule() {
-            Rule::ordered_marker => {
-                level = inner_pair.as_str().chars().count();
-            }
-            Rule::list_text => {
-                content = parse_inline_elements(inner_pair);
-            }
-            _ => {}
-        }
-    }
+    let text = pair.as_str();
+    let level = text.chars().take_while(|&c| c == '.').count();
+    let content_start = text.find(' ').unwrap_or(level) + 1;
+    let content = if content_start < text.len() {
+        parse_paragraph_content(&text[content_start..])
+    } else {
+        Vec::new()
+    };
     
     (level, content)
 }
@@ -316,7 +304,7 @@ fn parse_paragraph(pair: pest::iterators::Pair<Rule>) -> Block {
         if inner_pair.as_rule() == Rule::paragraph_line {
             for line_inner in inner_pair.into_inner() {
                 if line_inner.as_rule() == Rule::paragraph_text {
-                    content.extend(parse_inline_elements(line_inner));
+                    content.extend(parse_paragraph_content(line_inner.as_str()));
                 }
             }
         }
@@ -400,6 +388,9 @@ fn parse_inline_element(pair: pest::iterators::Pair<Rule>) -> Option<InlineEleme
             Rule::formatted_text => return Some(parse_formatted_text(inner_pair)),
             Rule::inline_macro => return Some(parse_inline_macro(inner_pair)),
             Rule::line_break => return Some(InlineElement::LineBreak),
+            Rule::whitespace => {
+                return Some(InlineElement::Text(inner_pair.as_str().to_string()));
+            }
             Rule::regular_text => {
                 return Some(InlineElement::Text(inner_pair.as_str().to_string()));
             }
@@ -456,6 +447,210 @@ fn parse_formatted_content(pair: pest::iterators::Pair<Rule>, content_rule: Rule
         }
     }
     Vec::new()
+}
+
+fn parse_paragraph_content(text: &str) -> Vec<InlineElement> {
+    let mut elements = Vec::new();
+    let mut current_pos = 0;
+    
+    while current_pos < text.len() {
+        // Find the earliest formatting marker
+        let remaining = &text[current_pos..];
+        let mut earliest_pos = remaining.len();
+        let mut marker_type = None;
+        
+        // Check for all formatting types
+        if let Some(pos) = remaining.find('*') {
+            if pos < earliest_pos {
+                earliest_pos = pos;
+                marker_type = Some("*");
+            }
+        }
+        if let Some(pos) = remaining.find('_') {
+            if pos < earliest_pos {
+                earliest_pos = pos;
+                marker_type = Some("_");
+            }
+        }
+        if let Some(pos) = remaining.find('`') {
+            if pos < earliest_pos {
+                earliest_pos = pos;
+                marker_type = Some("`");
+            }
+        }
+        if let Some(pos) = remaining.find('^') {
+            if pos < earliest_pos {
+                earliest_pos = pos;
+                marker_type = Some("^");
+            }
+        }
+        if let Some(pos) = remaining.find('~') {
+            if pos < earliest_pos {
+                earliest_pos = pos;
+                marker_type = Some("~");
+            }
+        }
+        if let Some(pos) = remaining.find("link:") {
+            if pos < earliest_pos {
+                earliest_pos = pos;
+                marker_type = Some("link:");
+            }
+        }
+        if let Some(pos) = remaining.find("<<") {
+            if pos < earliest_pos {
+                earliest_pos = pos;
+                marker_type = Some("<<");
+            }
+        }
+        
+        if let Some(marker) = marker_type {
+            let actual_start = current_pos + earliest_pos;
+            
+            // Add text before the marker
+            if earliest_pos > 0 {
+                elements.push(InlineElement::Text(text[current_pos..actual_start].to_string()));
+            }
+            
+            match marker {
+                "*" => {
+                    if let Some(end) = text[actual_start + 1..].find('*') {
+                        let actual_end = actual_start + 1 + end;
+                        let content = &text[actual_start + 1..actual_end];
+                        elements.push(InlineElement::Formatted {
+                            kind: FormattedTextKind::Strong,
+                            content: vec![InlineElement::Text(content.to_string())],
+                        });
+                        current_pos = actual_end + 1;
+                    } else {
+                        elements.push(InlineElement::Text(text[actual_start..actual_start + 1].to_string()));
+                        current_pos = actual_start + 1;
+                    }
+                }
+                "_" => {
+                    if let Some(end) = text[actual_start + 1..].find('_') {
+                        let actual_end = actual_start + 1 + end;
+                        let content = &text[actual_start + 1..actual_end];
+                        elements.push(InlineElement::Formatted {
+                            kind: FormattedTextKind::Emphasis,
+                            content: vec![InlineElement::Text(content.to_string())],
+                        });
+                        current_pos = actual_end + 1;
+                    } else {
+                        elements.push(InlineElement::Text(text[actual_start..actual_start + 1].to_string()));
+                        current_pos = actual_start + 1;
+                    }
+                }
+                "`" => {
+                    if let Some(end) = text[actual_start + 1..].find('`') {
+                        let actual_end = actual_start + 1 + end;
+                        let content = &text[actual_start + 1..actual_end];
+                        elements.push(InlineElement::Formatted {
+                            kind: FormattedTextKind::Monospace,
+                            content: vec![InlineElement::Text(content.to_string())],
+                        });
+                        current_pos = actual_end + 1;
+                    } else {
+                        elements.push(InlineElement::Text(text[actual_start..actual_start + 1].to_string()));
+                        current_pos = actual_start + 1;
+                    }
+                }
+                "^" => {
+                    if let Some(end) = text[actual_start + 1..].find('^') {
+                        let actual_end = actual_start + 1 + end;
+                        let content = &text[actual_start + 1..actual_end];
+                        elements.push(InlineElement::Formatted {
+                            kind: FormattedTextKind::Superscript,
+                            content: vec![InlineElement::Text(content.to_string())],
+                        });
+                        current_pos = actual_end + 1;
+                    } else {
+                        elements.push(InlineElement::Text(text[actual_start..actual_start + 1].to_string()));
+                        current_pos = actual_start + 1;
+                    }
+                }
+                "~" => {
+                    if let Some(end) = text[actual_start + 1..].find('~') {
+                        let actual_end = actual_start + 1 + end;
+                        let content = &text[actual_start + 1..actual_end];
+                        elements.push(InlineElement::Formatted {
+                            kind: FormattedTextKind::Subscript,
+                            content: vec![InlineElement::Text(content.to_string())],
+                        });
+                        current_pos = actual_end + 1;
+                    } else {
+                        elements.push(InlineElement::Text(text[actual_start..actual_start + 1].to_string()));
+                        current_pos = actual_start + 1;
+                    }
+                }
+                "link:" => {
+                    if let Some(bracket_start) = text[actual_start..].find('[') {
+                        if let Some(bracket_end) = text[actual_start + bracket_start..].find(']') {
+                            let url_start = actual_start + 5; // after "link:"
+                            let url_end = actual_start + bracket_start;
+                            let text_start = actual_start + bracket_start + 1;
+                            let text_end = actual_start + bracket_start + bracket_end;
+                            
+                            let url = text[url_start..url_end].to_string();
+                            let link_text = text[text_start..text_end].to_string();
+                            
+                            elements.push(InlineElement::Macro {
+                                kind: MacroKind::Link {
+                                    url,
+                                    text: if link_text.is_empty() { None } else { Some(link_text) },
+                                },
+                            });
+                            current_pos = text_end + 1;
+                        } else {
+                            elements.push(InlineElement::Text(text[actual_start..actual_start + 5].to_string()));
+                            current_pos = actual_start + 5;
+                        }
+                    } else {
+                        elements.push(InlineElement::Text(text[actual_start..actual_start + 5].to_string()));
+                        current_pos = actual_start + 5;
+                    }
+                }
+                "<<" => {
+                    if let Some(end_pos) = text[actual_start + 2..].find(">>") {
+                        let actual_end = actual_start + 2 + end_pos;
+                        let content = &text[actual_start + 2..actual_end];
+                        
+                        // Check for comma separator for xref text
+                        if let Some(comma_pos) = content.find(',') {
+                            let target = content[..comma_pos].trim().to_string();
+                            let xref_text = content[comma_pos + 1..].trim().to_string();
+                            elements.push(InlineElement::Macro {
+                                kind: MacroKind::CrossReference {
+                                    target,
+                                    text: if xref_text.is_empty() { None } else { Some(xref_text) },
+                                },
+                            });
+                        } else {
+                            elements.push(InlineElement::Macro {
+                                kind: MacroKind::CrossReference {
+                                    target: content.to_string(),
+                                    text: None,
+                                },
+                            });
+                        }
+                        current_pos = actual_end + 2; // Skip the ">>"
+                    } else {
+                        elements.push(InlineElement::Text(text[actual_start..actual_start + 2].to_string()));
+                        current_pos = actual_start + 2;
+                    }
+                }
+                _ => {
+                    elements.push(InlineElement::Text(text[actual_start..actual_start + 1].to_string()));
+                    current_pos = actual_start + 1;
+                }
+            }
+        } else {
+            // No more special characters, add the rest as text
+            elements.push(InlineElement::Text(text[current_pos..].to_string()));
+            break;
+        }
+    }
+    
+    elements
 }
 
 fn parse_inline_macro(pair: pest::iterators::Pair<Rule>) -> InlineElement {

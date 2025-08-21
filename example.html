@@ -1,0 +1,59 @@
+<h1>Advanced AsciiDoc Parser Test Document</h1>
+<p>This document tests various AsciiDoc features including <strong>bold text</strong>, <em>italic text</em>, and <code>monospace code</code>.</p>
+<h2>Introduction</h2>
+<p>Welcome to this <sup>superscript</sup> and <sub>subscript</sub> text example. Here&#39;s a <a href="https://rust-lang.org">Rust Programming Language</a> that should be parsed correctly.</p>
+<p>You can also use <strong></strong>double asterisks for bold<strong></strong> and <em></em>double underscores for emphasis<em></em>.</p>
+<h3>Code Examples</h3>
+<p>Here&#39;s some Rust code:</p>
+<pre><code>fn main() {
+    println!(&quot;Hello, AsciiDoc!&quot;);
+    let mut vec = Vec::new();
+    vec.push(42);
+}
+</code></pre>
+<p>And a simple example block:</p>
+<div class="example">This is an example block that contains important information.
+It can span multiple lines and include formatting like *bold* text.
+</div>
+<h2>Lists and More</h2>
+<h3>Unordered Lists</h3>
+<ul>
+<li>First item with <strong>bold</strong> text
+</li>
+<li>Second item with a <a href="https://github.com">GitHub link</a>
+</li>
+<li>Nested item with <code>code</code>
+</li>
+<li>Another nested item
+</li>
+</ul>
+<h3>Ordered Lists</h3>
+<ol>
+<li>First numbered item
+</li>
+<li>Second numbered item with <em>emphasis</em>
+</li>
+<li>Sub-item with <strong></strong>strong<strong></strong> text
+</li>
+<li>Another sub-item
+</li>
+</ol>
+<h3>Description Lists</h3>
+<dl>
+<dt>CPU</dt>
+<dd>The central processing unit</dd>
+<dt>RAM</dt>
+<dd>Random access memory with `volatile` storage</dd>
+<dt>SSD</dt>
+<dd>Solid state drive for fast link:https://wikipedia.org/wiki/Data_storage[data storage]</dd>
+</dl>
+<h2>Advanced Features</h2>
+<div class="example">This is a note block that provides additional information.
+</div>
+<p>Here&#39;s a line break: +This text appears on a new line.</p>
+<h3>Cross References</h3>
+<p>See <a href="#introduction">introduction</a> for more details about this document.</p>
+<h2>Conclusion</h2>
+<p>This document demonstrates various AsciiDoc features that our parser should handle gracefully. Some features like <strong>formatting</strong>, links, and basic blocks should work, while others may need additional implementation.</p>
+<p>Visit <a href="https://asciidoc.org">AsciiDoc.org</a> for complete documentation.</p>
+
