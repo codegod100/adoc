@@ -102,13 +102,55 @@ fn parse_body(pair: pest::iterators::Pair<Rule>) -> Vec<Block> {
         }
     }
     
+    // Post-process to handle block attributes
+    process_block_attributes(&mut blocks);
+    
     blocks
+}
+
+fn process_block_attributes(blocks: &mut Vec<Block>) {
+    let mut i = 0;
+    while i < blocks.len() {
+        // Check if current block is a paragraph that looks like a block attribute
+        if let Block::Paragraph { content } = &blocks[i] {
+            if content.len() == 1 {
+                if let InlineElement::Text(text) = &content[0] {
+                    // Check if it matches block attribute pattern [,language] or [options]
+                    if text.starts_with('[') && text.ends_with(']') {
+                        let attr_content = &text[1..text.len()-1];
+                        let attributes: Vec<String> = attr_content.split(',').map(|s| s.trim().to_string()).collect();
+                        
+                        // Check if next block is a delimited block
+                        if i + 1 < blocks.len() {
+                            if let Block::DelimitedBlock { kind, content, language: _ } = &blocks[i + 1] {
+                                // Extract language from attributes
+                                let new_language = extract_language_from_attributes(&Some(attributes));
+                                
+                                // Replace the next block with updated language
+                                blocks[i + 1] = Block::DelimitedBlock {
+                                    kind: kind.clone(),
+                                    content: content.clone(),
+                                    language: new_language,
+                                };
+                                
+                                // Remove the attribute paragraph
+                                blocks.remove(i);
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
 }
 
 fn parse_block(pair: pest::iterators::Pair<Rule>) -> Option<Block> {
     for inner_pair in pair.into_inner() {
         match inner_pair.as_rule() {
             Rule::section => return Some(parse_section(inner_pair)),
+            // Rule::attributed_block => return Some(parse_attributed_block(inner_pair)),
             Rule::delimited_block => return Some(parse_delimited_block(inner_pair)),
             Rule::list => return Some(parse_list(inner_pair)),
             Rule::paragraph => return Some(parse_paragraph(inner_pair)),
@@ -117,6 +159,29 @@ fn parse_block(pair: pest::iterators::Pair<Rule>) -> Option<Block> {
         }
     }
     None
+}
+
+fn parse_attributed_block(pair: pest::iterators::Pair<Rule>) -> Block {
+    let mut attributes: Option<Vec<String>> = None;
+    
+    for inner_pair in pair.into_inner() {
+        match inner_pair.as_rule() {
+            Rule::block_attribute => {
+                attributes = Some(parse_block_attribute(inner_pair));
+            },
+            Rule::delimited_block => {
+                return parse_delimited_block_with_attributes(inner_pair, attributes);
+            },
+            _ => {}
+        }
+    }
+    
+    // Fallback if no delimited block found
+    Block::DelimitedBlock {
+        kind: DelimitedBlockKind::Literal,
+        content: String::new(),
+        language: None,
+    }
 }
 
 fn parse_section(pair: pest::iterators::Pair<Rule>) -> Block {
@@ -129,36 +194,47 @@ fn parse_section(pair: pest::iterators::Pair<Rule>) -> Block {
 
 
 fn parse_delimited_block(pair: pest::iterators::Pair<Rule>) -> Block {
+    parse_delimited_block_with_attributes(pair, None)
+}
+
+fn parse_delimited_block_with_attributes(pair: pest::iterators::Pair<Rule>, attributes: Option<Vec<String>>) -> Block {
+    let language = extract_language_from_attributes(&attributes);
+    
     for inner_pair in pair.into_inner() {
         match inner_pair.as_rule() {
             Rule::listing_block => {
                 return Block::DelimitedBlock {
                     kind: DelimitedBlockKind::Listing,
                     content: extract_delimited_content(inner_pair, Rule::listing_content),
+                    language: language.clone(),
                 };
             }
             Rule::example_block => {
                 return Block::DelimitedBlock {
                     kind: DelimitedBlockKind::Example,
                     content: extract_delimited_content(inner_pair, Rule::example_content),
+                    language: language.clone(),
                 };
             }
             Rule::literal_block => {
                 return Block::DelimitedBlock {
                     kind: DelimitedBlockKind::Literal,
                     content: extract_delimited_content(inner_pair, Rule::literal_content),
+                    language: language.clone(),
                 };
             }
             Rule::sidebar_block => {
                 return Block::DelimitedBlock {
                     kind: DelimitedBlockKind::Sidebar,
                     content: extract_delimited_content(inner_pair, Rule::sidebar_content),
+                    language: language.clone(),
                 };
             }
             Rule::quote_block => {
                 return Block::DelimitedBlock {
                     kind: DelimitedBlockKind::Quote,
                     content: extract_delimited_content(inner_pair, Rule::quote_content),
+                    language: language.clone(),
                 };
             }
             _ => {}
@@ -168,6 +244,7 @@ fn parse_delimited_block(pair: pest::iterators::Pair<Rule>) -> Block {
     Block::DelimitedBlock {
         kind: DelimitedBlockKind::Literal,
         content: String::new(),
+        language,
     }
 }
 
@@ -178,6 +255,23 @@ fn extract_delimited_content(pair: pest::iterators::Pair<Rule>, content_rule: Ru
         }
     }
     String::new()
+}
+
+fn extract_language_from_attributes(attributes: &Option<Vec<String>>) -> Option<String> {
+    if let Some(attrs) = attributes {
+        for attr in attrs {
+            let trimmed = attr.trim();
+            // Handle [,language] syntax - second attribute is language
+            if trimmed.starts_with(',') {
+                return Some(trimmed[1..].to_string());
+            }
+            // Handle [language] syntax - if it's a known language or starts with a letter
+            if !trimmed.is_empty() && !trimmed.contains('=') && !trimmed.contains(':') {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    None
 }
 
 fn parse_list(pair: pest::iterators::Pair<Rule>) -> Block {
@@ -299,12 +393,18 @@ fn parse_description_item(pair: pest::iterators::Pair<Rule>) -> ListItem {
 
 fn parse_paragraph(pair: pest::iterators::Pair<Rule>) -> Block {
     let mut content = Vec::new();
+    let mut first_line = true;
     
     for inner_pair in pair.into_inner() {
         if inner_pair.as_rule() == Rule::paragraph_line {
             for line_inner in inner_pair.into_inner() {
                 if line_inner.as_rule() == Rule::paragraph_text {
+                    // Add space between lines (except for the first line)
+                    if !first_line && !content.is_empty() {
+                        content.push(InlineElement::Text(" ".to_string()));
+                    }
                     content.extend(parse_paragraph_content(line_inner.as_str()));
+                    first_line = false;
                 }
             }
         }
@@ -496,6 +596,18 @@ fn parse_paragraph_content(text: &str) -> Vec<InlineElement> {
                 marker_type = Some("link:");
             }
         }
+        if let Some(pos) = remaining.find("https://") {
+            if pos < earliest_pos {
+                earliest_pos = pos;
+                marker_type = Some("https://");
+            }
+        }
+        if let Some(pos) = remaining.find("http://") {
+            if pos < earliest_pos {
+                earliest_pos = pos;
+                marker_type = Some("http://");
+            }
+        }
         if let Some(pos) = remaining.find("<<") {
             if pos < earliest_pos {
                 earliest_pos = pos;
@@ -607,6 +719,67 @@ fn parse_paragraph_content(text: &str) -> Vec<InlineElement> {
                     } else {
                         elements.push(InlineElement::Text(text[actual_start..actual_start + 5].to_string()));
                         current_pos = actual_start + 5;
+                    }
+                }
+                "https://" | "http://" => {
+                    // Find the end of the URL (space, newline, or common delimiters)
+                    let url_start = actual_start;
+                    let mut url_end = text.len();
+                    let remaining_text = &text[actual_start..];
+                    let chars: Vec<char> = remaining_text.chars().collect();
+                    
+                    for (i, &ch) in chars.iter().enumerate() {
+                        if ch.is_whitespace() || ch == ',' || ch == ')' || ch == '>' {
+                            url_end = actual_start + remaining_text.char_indices().nth(i).unwrap().0;
+                            break;
+                        }
+                        // Stop at period if it's followed by space (end of sentence)
+                        if ch == '.' && chars.get(i + 1).map_or(true, |&c| c.is_whitespace()) {
+                            url_end = actual_start + remaining_text.char_indices().nth(i).unwrap().0;
+                            break;
+                        }
+                        // Stop at '[' to check for link text
+                        if ch == '[' {
+                            url_end = actual_start + remaining_text.char_indices().nth(i).unwrap().0;
+                            break;
+                        }
+                    }
+                    
+                    let url = text[url_start..url_end].to_string();
+                    
+                    // Check if there's link text after the URL
+                    if text.get(url_end..url_end + 1) == Some("[") {
+                        if let Some(bracket_end) = text[url_end + 1..].find(']') {
+                            let text_start = url_end + 1;
+                            let text_end = url_end + 1 + bracket_end;
+                            let link_text = text[text_start..text_end].to_string();
+                            
+                            elements.push(InlineElement::Macro {
+                                kind: MacroKind::Link {
+                                    url,
+                                    text: if link_text.is_empty() { None } else { Some(link_text) },
+                                },
+                            });
+                            current_pos = text_end + 1; // Skip the ']'
+                        } else {
+                            // No closing bracket, treat as bare URL
+                            elements.push(InlineElement::Macro {
+                                kind: MacroKind::Link {
+                                    url: url.clone(),
+                                    text: Some(url),
+                                },
+                            });
+                            current_pos = url_end;
+                        }
+                    } else {
+                        // No link text, use URL as text
+                        elements.push(InlineElement::Macro {
+                            kind: MacroKind::Link {
+                                url: url.clone(),
+                                text: Some(url),
+                            },
+                        });
+                        current_pos = url_end;
                     }
                 }
                 "<<" => {

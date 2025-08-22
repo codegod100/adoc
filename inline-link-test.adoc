@@ -1,0 +1,5 @@
+= Link Test
+
+Visit https://asciidoc.org[AsciiDoc] and https://rust-lang.org[Rust].
+
+Also check https://github.com and plain https://example.com links.

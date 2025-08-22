@@ -45,6 +45,7 @@ pub enum Block {
     DelimitedBlock {
         kind: DelimitedBlockKind,
         content: String,
+        language: Option<String>,
     },
     List {
         kind: ListKind,
@@ -146,9 +147,15 @@ impl Block {
             Block::Paragraph { content } => {
                 format!("<p>{}</p>\n", inline_elements_to_html(content))
             }
-            Block::DelimitedBlock { kind, content } => {
+            Block::DelimitedBlock { kind, content, language } => {
                 match kind {
-                    DelimitedBlockKind::Listing => format!("<pre><code>{}</code></pre>\n", escape_html(content)),
+                    DelimitedBlockKind::Listing => {
+                        if let Some(lang) = language {
+                            format!("<pre><code class=\"language-{}\">{}</code></pre>\n", escape_html(lang), escape_html(content))
+                        } else {
+                            format!("<pre><code>{}</code></pre>\n", escape_html(content))
+                        }
+                    },
                     DelimitedBlockKind::Example => format!("<div class=\"example\">{}</div>\n", escape_html(content)),
                     DelimitedBlockKind::Literal => format!("<pre>{}</pre>\n", escape_html(content)),
                     DelimitedBlockKind::Sidebar => format!("<aside>{}</aside>\n", escape_html(content)),

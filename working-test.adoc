@@ -1,0 +1,11 @@
+= Test Document
+
+This is a paragraph.
+
+Here's some code:
+
+----
+puts 'Hello'
+----
+
+That was code.

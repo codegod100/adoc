@@ -1,0 +1,5 @@
+= URL Test
+
+Visit https://example.com for more info.
+
+Also check out http://rust-lang.org and link:https://github.com[GitHub].

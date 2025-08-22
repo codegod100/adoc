@@ -1,0 +1,10 @@
+= Test
+
+Here's some ruby code:
+
+[,ruby]
+----
+puts 'Hello'
+----
+
+Done.
